@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <time.h> // Include time.h for clock()
 
 #include "util.h"
 
@@ -26,88 +27,102 @@ const ppm_color_t colors[] = {
     PPM_BRIGHT_RED,
     PPM_BRIGHT_MAGENTA,
     PPM_YELLOW,
-    PPM_WHITE
-};
+    PPM_WHITE};
 const int colornum = sizeof(colors) / sizeof(colors[0]);
 
 int main(int argc, char *argv[])
 {
-    char *output_filename = "output.ppm";
+  clock_t start_time = clock(); // Start the timer
+  char *output_filename = "output.ppm";
 
-    int max_iterations = 512;
-    int max_size = 4;
+  int max_iterations = 512;
+  int max_size = 4;
 
-    int c;
-    while ((c = getopt(argc, argv, "o:i:s:")) != -1) {
-        char *endptr;
+  int c;
+  while ((c = getopt(argc, argv, "o:i:s:")) != -1)
+  {
+    char *endptr;
 
-        switch (c) {
-        case 'o':
-            output_filename = optarg;
-            break;
-        case 'i':
-            max_iterations = strtol(optarg, &endptr, 10);
-            break;
-        case 's':
-            max_size = strtol(optarg, &endptr, 10);
-            break;
-        default:
-            return EXIT_FAILURE;
-        }
+    switch (c)
+    {
+    case 'o':
+      output_filename = optarg;
+      break;
+    case 'i':
+      max_iterations = strtol(optarg, &endptr, 10);
+      break;
+    case 's':
+      max_size = strtol(optarg, &endptr, 10);
+      break;
+    default:
+      return EXIT_FAILURE;
     }
+  }
 
-    ppm_t *ppm = ppm_create(WIDTH, HEIGHT);
+  ppm_t *ppm = ppm_create(WIDTH, HEIGHT);
 
-    /*
-     * dimensions of the complex plane
-     */
-    float x_min = -2.0;
-    float x_max = 2.0;
-    float y_min = -2.0;
-    float y_max = 2.0;
+  /*
+   * dimensions of the complex plane
+   */
+  float x_min = -2.0;
+  float x_max = 1.0;
+  float y_min = -1.0;
+  float y_max = 1.0;
 
-    /*
-     * For each row and each column set real and imag parts of the complex
-     * number to be used in iteration
-     */
-    float delta_x = (x_max - x_min) / WIDTH;
-    float delta_y = (y_max - y_min) / HEIGHT;
+  // float x_min = 0.27085;
+  // float x_max = 0.27100;
+  // float y_min = 0.004640;
+  // float y_max = .004810;
 
-    float Q[HEIGHT] = { y_max };
-    float P[WIDTH] = { x_min };
-    for (int row = 1; row < HEIGHT; row++)
-        Q[row] = Q[row - 1] - delta_y;
-    for (int col = 1; col < WIDTH; col++ )
-        P[col] = P[col - 1] + delta_x;
+  /*
+   * For each row and each column set real and imag parts of the complex
+   * number to be used in iteration
+   */
+  float delta_x = (x_max - x_min) / WIDTH;
+  float delta_y = (y_max - y_min) / HEIGHT;
 
-    /*
-     * For every pixel calculate resulting value until the number becomes too
-     * big, or we run out of iterations
-     */
-    for (int col = 0; col < WIDTH; col++ ) {
-        for (int row = 0; row < HEIGHT; row++ ) {
-            float x_square = 0.0;
-            float y_square = 0.0;
-            float x = 0.0;
-            float y = 0.0;
+  float Q[HEIGHT] = {y_max};
+  float P[WIDTH] = {x_min};
+  for (int row = 1; row < HEIGHT; row++)
+    Q[row] = Q[row - 1] - delta_y;
+  for (int col = 1; col < WIDTH; col++)
+    P[col] = P[col - 1] + delta_x;
 
-            int color = 1;
-            while (color < max_iterations && x_square + y_square < max_size) {
-                x_square = x * x;
-                y_square = y * y;
-                y = 2 * x * y + Q[row];
-                x = x_square - y_square + P[col];
-                color++;
-            }
-            ppm_dot_safe(ppm, col, row, colors[color % colornum]);
-        }
+  /*
+   * For every pixel calculate resulting value until the number becomes too
+   * big, or we run out of iterations
+   */
+  for (int col = 0; col < WIDTH; col++)
+  {
+    for (int row = 0; row < HEIGHT; row++)
+    {
+      float x_square = 0.0;
+      float y_square = 0.0;
+      float x = 0.0;
+      float y = 0.0;
+
+      int color = 1;
+      while (color < max_iterations && x_square + y_square < max_size)
+      {
+        x_square = x * x;
+        y_square = y * y;
+        y = 2 * x * y + Q[row];
+        x = x_square - y_square + P[col];
+        color++;
+      }
+      ppm_dot_safe(ppm, col, row, colors[color % colornum]);
     }
+  }
 
-    FILE *f = fopen(output_filename, "w");
-    ppm_write(ppm, f);
-    fclose(f);
+  FILE *f = fopen(output_filename, "w");
+  ppm_write(ppm, f);
+  fclose(f);
 
-    ppm_destroy(ppm);
+  ppm_destroy(ppm);
 
-    return EXIT_SUCCESS;
+  clock_t end_time = clock(); // End the timer
+  double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+  printf("Time elapsed: %.2f seconds\n", elapsed_time);
+
+  return EXIT_SUCCESS;
 }

@@ -10,7 +10,7 @@ Examples should easy to build on any Linux using a recent GCC and GNU Make:
 #+begin_src shell-script
   make
   # -o for an output file
-  ./mandelbrot -o output.ppm
+  ./mandelbrot -o output.ppm -i 150000
   see output.ppm
 #+end_src
 

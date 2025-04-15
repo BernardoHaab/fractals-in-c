@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h> // Include time.h for clock()
+#include <omp.h>
 
 #include "util.h"
 
@@ -32,7 +33,9 @@ const int colornum = sizeof(colors) / sizeof(colors[0]);
 
 int main(int argc, char *argv[])
 {
-  clock_t start_time = clock(); // Start the timer
+  // clock_t start_time = clock(); // Start the timer
+  double start_time = omp_get_wtime(); // Inicia o cronômetro
+
   char *output_filename = "output.ppm";
 
   int max_iterations = 512;
@@ -88,10 +91,13 @@ int main(int argc, char *argv[])
   for (int col = 1; col < WIDTH; col++)
     P[col] = P[col - 1] + delta_x;
 
-  /*
-   * For every pixel calculate resulting value until the number becomes too
-   * big, or we run out of iterations
-   */
+  // omp_set_num_threads(8);
+
+/*
+ * For every pixel calculate resulting value until the number becomes too
+ * big, or we run out of iterations
+ */
+#pragma omp parallel for schedule(dynamic) collapse(2) // Paraleliza os loops
   for (int col = 0; col < WIDTH; col++)
   {
     for (int row = 0; row < HEIGHT; row++)
@@ -120,8 +126,12 @@ int main(int argc, char *argv[])
 
   ppm_destroy(ppm);
 
-  clock_t end_time = clock(); // End the timer
-  double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+  // clock_t end_time = clock(); // End the timer
+  // double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+  // printf("Time elapsed: %.2f seconds\n", elapsed_time);
+
+  double end_time = omp_get_wtime(); // Finaliza o cronômetro
+  double elapsed_time = end_time - start_time;
   printf("Time elapsed: %.2f seconds\n", elapsed_time);
 
   return EXIT_SUCCESS;

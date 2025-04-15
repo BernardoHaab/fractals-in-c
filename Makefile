@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -g -Wall -Wextra
-LOADLIBES=-lm
+LOADLIBES=-lm -fopenmp -lc
 
 EXECUTABLES=lorenz bifurcation koch peano hilbert sierpinski tree mandelbrot
 

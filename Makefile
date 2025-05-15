@@ -1,8 +1,8 @@
-CC = gcc
-CFLAGS = -g -Wall -Wextra
+CC = mpicc
+CFLAGS = -g -Wextra
 LOADLIBES=-lm -fopenmp -lc
 
-EXECUTABLES=lorenz bifurcation koch peano hilbert sierpinski tree mandelbrot
+EXECUTABLES=mandelbrot mandelbrot_mpi
 
 .PHONY: all
 all: $(EXECUTABLES)

@@ -1,0 +1,7 @@
+{
+  "files.associations": {
+    "*.css": "tailwindcss",
+    "array": "c",
+    "string_view": "c"
+  }
+}

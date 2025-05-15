@@ -72,11 +72,6 @@ int main(int argc, char *argv[])
   float y_min = -1.0;
   float y_max = 1.0;
 
-  // float x_min = 0.27085;
-  // float x_max = 0.27100;
-  // float y_min = 0.004640;
-  // float y_max = .004810;
-
   /*
    * For each row and each column set real and imag parts of the complex
    * number to be used in iteration
@@ -97,7 +92,7 @@ int main(int argc, char *argv[])
  * For every pixel calculate resulting value until the number becomes too
  * big, or we run out of iterations
  */
-#pragma omp parallel for schedule(dynamic) collapse(2) // Paraleliza os loops
+#pragma omp parallel for schedule(static) collapse(2) // Paraleliza os loops
   for (int col = 0; col < WIDTH; col++)
   {
     for (int row = 0; row < HEIGHT; row++)
@@ -116,7 +111,9 @@ int main(int argc, char *argv[])
         x = x_square - y_square + P[col];
         color++;
       }
-      ppm_dot_safe(ppm, col, row, colors[color % colornum]);
+      int intensity = (color / max_iterations) * 255;
+      ppm_color_t grey = {intensity, intensity, intensity};
+      ppm_dot_safe(ppm, col, row, grey);
     }
   }
 

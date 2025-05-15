@@ -117,10 +117,10 @@ void controller()
     int pixels_por_trabalho = width_trabalho * height_trabalho;
     int res_size = pixels_por_trabalho * sizeof(int);
     int *res = malloc(res_size);
-    MPI_Recv(res, res_size, MPI_INT, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
+    MPI_Recv(res, pixels_por_trabalho, MPI_INT, MPI_ANY_SOURCE, 1, MPI_COMM_WORLD, &status);
     quant_responses++;
     int trabalhador = status.MPI_SOURCE;
-    int idx_trabalho = trabalhador_trabalho[trabalhador];
+    int idx_trabalho = trabalhador_trabalho[trabalhador - 1];
 
     printf("RECEBEU MENSAGEN de trabalhador[%d]\n", trabalhador);
 
@@ -145,24 +145,6 @@ void controller()
       int fim = -1.;
       MPI_Send(&fim, MESSAGE_CORDS_SIZE, MPI_FLOAT, trabalhador, 100, MPI_COMM_WORLD);
     }
-  }
-
-  FILE *img_txt = fopen("image_array.txt", "w");
-  if (img_txt)
-  {
-    for (int row = 0; row < HEIGHT; row++)
-    {
-      for (int col = 0; col < WIDTH; col++)
-      {
-        fprintf(img_txt, "%d ", image[row * WIDTH + col]);
-      }
-      fprintf(img_txt, "\n");
-    }
-    fclose(img_txt);
-  }
-  else
-  {
-    fprintf(stderr, "Failed to open image_array.txt for writing\n");
   }
 
   ppm_t *ppm = ppm_create(WIDTH, HEIGHT);
@@ -209,6 +191,16 @@ void worker()
   float y_max = coords[3];
   int width = (int)coords[4];
   int height = (int)coords[5];
+  // printf("width: %i\n", width);
+  // printf("height: %i\n", height);
+  int pixels_por_trabalho = width * height;
+
+  // printf("COORDS:\n");
+  // for (int i = 0; i < 6; i++)
+  // {
+  //   printf("%d ", coords[i]);
+  // }
+  // printf("\n");
 
   /*
    * For each row and each column set real and imag parts of the complex
@@ -262,7 +254,9 @@ void worker()
     }
   }
 
-  MPI_Send(response, width * height, MPI_INT, 0, 1, MPI_COMM_WORLD);
+  // printf("width * height: %i\n", pixels_por_trabalho);
+
+  MPI_Send(response, pixels_por_trabalho, MPI_INT, 0, 1, MPI_COMM_WORLD);
 
   // Recebe o intervalo de coordenadas
   // Para cada coordenada:

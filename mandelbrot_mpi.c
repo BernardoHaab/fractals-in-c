@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h> // Include time.h for clock()
-#include <omp.h>
 #include "util.h"
 #include <string.h>
 
@@ -209,7 +208,7 @@ void worker()
   float y_min = coords[2];
   float y_max = coords[3];
   int width = (int)coords[4];
-  int height = (int)coords[4];
+  int height = (int)coords[5];
 
   /*
    * For each row and each column set real and imag parts of the complex

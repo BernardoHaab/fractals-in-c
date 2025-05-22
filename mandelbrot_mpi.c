@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h> // Include time.h for clock()
-#include <omp.h>
 #include "util.h"
 #include <string.h>
 

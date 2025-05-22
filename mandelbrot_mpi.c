@@ -10,7 +10,7 @@
 #define HEIGHT 480
 
 #define MESSAGE_CORDS_SIZE 6
-#define MAX_ITERATIONS 1500
+#define MAX_ITERATIONS 15000
 #define MAX_SIZE 4
 
 const ppm_color_t colors[] = {
@@ -72,9 +72,13 @@ int main(int argc, char *argv[])
   MPI_Init(&argc, &argv);                  // funcao que inicializa o MPI, todo o código paralelo esta abaixo
   MPI_Comm_rank(MPI_COMM_WORLD, &my_rank); // pega pega o numero do processo atual (rank)
 
+  double start_time = 0.0, end_time = 0.0;
   if (my_rank == 0)
   {
+    start_time = MPI_Wtime();
     controller();
+    end_time = MPI_Wtime();
+    printf("Tempo decorrido: %f segundos\n", end_time - start_time);
   }
   else
   {
@@ -87,8 +91,6 @@ int main(int argc, char *argv[])
 
 void controller()
 {
-  int maxIterations = 150000;
-  // int maxIterations = 1500;
   int max_size = 4;
 
   int proc_n;                             // Numero de processos disparados pelo usuário na linha de comando (np)
@@ -152,7 +154,10 @@ void controller()
     // matriz da imagem esta em representação linear
     for (int row = 0; row < height_trabalho; row++)
     {
-      memcpy(&image[row * WIDTH + idx_trabalho * width_trabalho], sliceIntArray(res, row * width_trabalho, (row + 1) * width_trabalho, NULL), width_trabalho * sizeof(int));
+      // memcpy(&image[row * WIDTH + idx_trabalho * width_trabalho], sliceIntArray(res, row * width_trabalho, (row + 1) * width_trabalho, NULL), width_trabalho * sizeof(int));
+      memcpy(&image[row * WIDTH + idx_trabalho * width_trabalho],
+             &res[row * width_trabalho],
+             width_trabalho * sizeof(int));
     }
     free(res); // Libere a memória de res após copiar
 
@@ -250,7 +255,7 @@ void worker()
       float x = 0.0;
       float y = 0.0;
 
-      int color = 1;
+      int color = 0;
       while (color < MAX_ITERATIONS && x_square + y_square < MAX_SIZE)
       {
         x_square = x * x;
@@ -259,7 +264,19 @@ void worker()
         x = x_square - y_square + P[col];
         color++;
       }
-      response[row * width + col] = (color / MAX_ITERATIONS) * 255;
+
+      int grey;
+      // Enhance contrast using a nonlinear scaling (gamma correction)
+      float norm = (float)color / MAX_ITERATIONS;
+      // Apply gamma correction to spread values more evenly
+      float gamma = 0.3f; // Lower gamma increases contrast in darks
+      float scaled = powf(norm, gamma);
+      int r = (int)(255 * scaled);
+      int g = (int)(255 * powf(scaled, 0.7f));
+      int b = (int)(255 * powf(scaled, 0.5f));
+      grey = (int)(0.21f * r + 0.72f * g + 0.07f * b);
+
+      response[row * width + col] = grey;
     }
   }
 

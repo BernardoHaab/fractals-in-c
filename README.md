@@ -11,8 +11,16 @@ Examples should easy to build on any Linux using a recent GCC and GNU Make:
   make
   # -o for an output file
   ./mandelbrot -o output.ppm -i 150000
+
+  mpirun -np 5 ./mandelbrot_zoom
+  ffmpeg -framerate 10 -i frame_%03d.ppm -c:v libx264 -pix_fmt yuv420p zoom_animation.mp4
+
   see output.ppm
 #+end_src
+
+
+sou o bernardinhokkkk
+
 
 Some of the programs accept additional arguments but defaults should be fine too.
 
@@ -45,3 +53,5 @@ Some of the programs accept additional arguments but defaults should be fine too
   Sierpinsky triangle:
 
   [[file:examples/sierpinski.png]]
+
+  imter

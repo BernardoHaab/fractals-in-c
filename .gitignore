@@ -10,3 +10,5 @@ hilbert
 sierpinski
 tree
 mandelbrot
+*.ppm
+*.mp4

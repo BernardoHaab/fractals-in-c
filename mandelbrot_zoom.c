@@ -5,6 +5,8 @@
 #include <time.h> // Include time.h for clock()
 #include "util.h"
 #include <string.h>
+#include <omp.h>
+#include <bits/getopt_core.h>
 
 #define WIDTH 640
 #define HEIGHT 480
@@ -37,7 +39,7 @@ const ppm_color_t colors[] = {
     PPM_WHITE};
 const int colornum = sizeof(colors) / sizeof(colors[0]);
 
-void controller();
+void controller(int num_frames);
 void worker();
 
 typedef struct
@@ -132,6 +134,23 @@ int *sliceIntArray(int *source, int from, int to, int *target)
 
 int main(int argc, char *argv[])
 {
+  int c;
+  int frames = 0;
+  while ((c = getopt(argc, argv, "f:")) != -1)
+  {
+    if (c == 'f')
+    {
+      char *endptr;
+      frames = strtol(optarg, &endptr, 10);
+      printf("Número de frames: %d\n", frames);
+    }
+    if (frames <= 0)
+    {
+      fprintf(stderr, "Número de frames inválido. Usando o padrão de %d frames.\n", NUM_FRAMES);
+      frames = NUM_FRAMES;
+    }
+  }
+
   int my_rank; // Identificador deste processo
 
   MPI_Init(&argc, &argv);                  // funcao que inicializa o MPI, todo o código paralelo esta abaixo
@@ -141,7 +160,7 @@ int main(int argc, char *argv[])
   if (my_rank == 0)
   {
     start_time = MPI_Wtime();
-    controller();
+    controller(frames);
     end_time = MPI_Wtime();
     printf("Tempo decorrido: %f segundos\n", end_time - start_time);
   }
@@ -177,14 +196,14 @@ void saveImage(int *colors, int frame_id)
   ppm_destroy(ppm);
 }
 
-void controller()
+void controller(int num_frames)
 {
   int num_procs;
   MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
   int num_workers = num_procs - 1;
 
-  zoom_coords_t coords[NUM_FRAMES];
-  generate_zoom_sequence(coords, NUM_FRAMES);
+  zoom_coords_t coords[num_frames];
+  generate_zoom_sequence(coords, num_frames);
 
   int frames_sent = 0;
   int frames_received = 0;
@@ -203,7 +222,7 @@ void controller()
     frames_sent++;
   }
 
-  while (frames_received < NUM_FRAMES)
+  while (frames_received < num_frames)
   {
     int *res = malloc(WIDTH * HEIGHT * sizeof(int));
     MPI_Recv(res, WIDTH * HEIGHT, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
@@ -212,7 +231,7 @@ void controller()
     free(res);
     frames_received++;
 
-    if (frames_sent < NUM_FRAMES)
+    if (frames_sent < num_frames)
     {
       double message[MESSAGE_CORDS_SIZE] = {
           coords[frames_sent].x_min,

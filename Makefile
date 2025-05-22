@@ -2,7 +2,7 @@ CC = mpicc
 CFLAGS = -g -Wextra
 LOADLIBES=-lm -lc
 
-EXECUTABLES=mandelbrot mandelbrot_mpi
+EXECUTABLES=mandelbrot mandelbrot_mpi mandelbrot_zoom
 
 .PHONY: all
 all: $(EXECUTABLES)

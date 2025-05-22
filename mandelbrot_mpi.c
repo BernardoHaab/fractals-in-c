@@ -39,6 +39,33 @@ const int colornum = sizeof(colors) / sizeof(colors[0]);
 void controller();
 void worker();
 
+int *sliceIntArray(int *source, int from, int to, int *target)
+{
+  // Invalid, return null.
+
+  if (to <= from)
+  {
+    return NULL;
+  }
+
+  // Only allocate if target buffer not given by caller.
+
+  if (target == NULL)
+  {
+    target = malloc((to - from) * sizeof(int));
+    if (target == NULL)
+    {
+      return NULL;
+    }
+  }
+
+  // Copy the data and return it.
+
+  memcpy(target, &(source[from]), (to - from) * sizeof(int));
+
+  return target;
+}
+
 int main(int argc, char *argv[])
 {
   int my_rank; // Identificador deste processo
@@ -61,8 +88,8 @@ int main(int argc, char *argv[])
 
 void controller()
 {
-  // int maxIterations = 150000;
-  int maxIterations = 1500;
+  int maxIterations = 150000;
+  // int maxIterations = 1500;
   int max_size = 4;
 
   int proc_n;                             // Numero de processos disparados pelo usuário na linha de comando (np)
@@ -82,7 +109,7 @@ void controller()
   int quant_trabalhadores = proc_n - 1;
   int quant_trabalho = process_por_trabalhador * quant_trabalhadores;
 
-  int saco[quant_trabalho][MESSAGE_CORDS_SIZE];
+  float saco[quant_trabalho][MESSAGE_CORDS_SIZE];
 
   float tam_trab = (x_max - x_min) / quant_trabalho;
 
@@ -96,15 +123,14 @@ void controller()
     saco[trab][1] = x_min + ((trab + 1) * tam_trab); // x_max
     saco[trab][2] = y_min;                           // y_min
     saco[trab][3] = y_max;                           // y_max
-    saco[trab][4] = width_trabalho;                  // WIDTH do trabalho
-    saco[trab][5] = height_trabalho;                 // HEIGHT do trabalho
+    saco[trab][4] = (float)width_trabalho;           // WIDTH do trabalho
+    saco[trab][5] = (float)height_trabalho;          // HEIGHT do trabalho
   }
 
   int curr_trab = 0;
 
   for (int i = 1; i < proc_n; i++)
   {
-    printf("ENVIOU TRABALHO PARA %d\n", i);
     MPI_Send(saco[curr_trab], MESSAGE_CORDS_SIZE, MPI_FLOAT, i, 1, MPI_COMM_WORLD);
     trabalhador_trabalho[i - 1] = curr_trab;
     curr_trab++;
@@ -123,17 +149,16 @@ void controller()
     int trabalhador = status.MPI_SOURCE;
     int idx_trabalho = trabalhador_trabalho[trabalhador - 1];
 
-    printf("RECEBEU MENSAGEN de trabalhador[%d]\n", trabalhador);
-
     // aloca a resposta na posição correta da matriz da imagem
     // matriz da imagem esta em representação linear
-    memcpy(&image[idx_trabalho * pixels_por_trabalho], res, pixels_por_trabalho * sizeof(int));
+    for (int row = 0; row < height_trabalho; row++)
+    {
+      memcpy(&image[row * WIDTH + idx_trabalho * width_trabalho], sliceIntArray(res, row * width_trabalho, (row + 1) * width_trabalho, NULL), width_trabalho * sizeof(int));
+    }
     free(res); // Libere a memória de res após copiar
 
     if (curr_trab < quant_trabalho)
     {
-      printf("ENVIOU MAIS TRABALHO\n");
-
       // Envia novo trabalho
       MPI_Send(saco[curr_trab], MESSAGE_CORDS_SIZE, MPI_FLOAT, trabalhador, 1, MPI_COMM_WORLD);
       trabalhador_trabalho[trabalhador - 1] = curr_trab;
@@ -141,8 +166,6 @@ void controller()
     }
     else
     {
-      printf("ENCERROU TRABALHADRO[%d]\n", trabalhador);
-
       int fim = -1.;
       MPI_Send(&fim, MESSAGE_CORDS_SIZE, MPI_FLOAT, trabalhador, 100, MPI_COMM_WORLD);
     }
@@ -166,16 +189,11 @@ void controller()
   fclose(f);
 
   ppm_destroy(ppm);
-
-  printf("RECEBEU TODAS\n");
-  // Para cada trabalhador enviar o intervalo de coordenadas
-  // Enquanto existirem tarefa:
-  // Espera o resultado do trabalhador, escreve no arquivo, e envia mais trabalho para ele
 }
 
 void worker()
 {
-  int coords[MESSAGE_CORDS_SIZE];
+  float coords[MESSAGE_CORDS_SIZE];
   MPI_Status status; // estrutura que guarda o estado de retorno
 
   MPI_Recv(coords, MESSAGE_CORDS_SIZE, MPI_FLOAT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
@@ -192,16 +210,7 @@ void worker()
   float y_max = coords[3];
   int width = (int)coords[4];
   int height = (int)coords[5];
-  // printf("width: %i\n", width);
-  // printf("height: %i\n", height);
   int pixels_por_trabalho = width * height;
-
-  // printf("COORDS:\n");
-  // for (int i = 0; i < 6; i++)
-  // {
-  //   printf("%d ", coords[i]);
-  // }
-  // printf("\n");
 
   /*
    * For each row and each column set real and imag parts of the complex
@@ -255,14 +264,5 @@ void worker()
     }
   }
 
-  // printf("width * height: %i\n", pixels_por_trabalho);
-
   MPI_Send(response, pixels_por_trabalho, MPI_INT, 0, 1, MPI_COMM_WORLD);
-
-  // Recebe o intervalo de coordenadas
-  // Para cada coordenada:
-  // Calcula o valor da iteração
-  // Escreve o resultado na matriz de resposta
-  // Envia matriz
-  // *Matriz é representada como array
 }

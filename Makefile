@@ -1,6 +1,6 @@
 CC = mpicc
 CFLAGS = -g -Wextra
-LOADLIBES=-lm -fopenmp -lc
+LOADLIBES=-lm -lc
 
 EXECUTABLES=mandelbrot mandelbrot_mpi
 

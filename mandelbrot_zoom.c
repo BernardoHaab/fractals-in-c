@@ -20,14 +20,14 @@
 void controller(int num_frames);
 void worker();
 
-void generate_zoom_sequence(zoom_coords_t *coords, int num_frames);
-void mandelbrot_render(int *response, double x_min, double x_max, double y_min, double y_max, int width, int height, int frame_id);
-void saveImage(int *colors, int frame_id);
-
 typedef struct
 {
   double x_min, x_max, y_min, y_max;
 } zoom_coords_t;
+
+void generate_zoom_sequence(zoom_coords_t *coords, int num_frames);
+void mandelbrot_render(int *response, double x_min, double x_max, double y_min, double y_max, int width, int height, int frame_id);
+void saveImage(int *colors, int frame_id);
 
 int main(int argc, char *argv[])
 {

@@ -34,7 +34,7 @@ const int colornum = sizeof(colors) / sizeof(colors[0]);
 int main(int argc, char *argv[])
 {
   // clock_t start_time = clock(); // Start the timer
-  double start_time = omp_get_wtime(); // Inicia o cronômetro
+  // double start_time = omp_get_wtime(); // Inicia o cronômetro
 
   char *output_filename = "output.ppm";
 
@@ -42,25 +42,25 @@ int main(int argc, char *argv[])
   int max_size = 4;
 
   int c;
-  while ((c = getopt(argc, argv, "o:i:s:")) != -1)
-  {
-    char *endptr;
+  // while ((c = getopt(argc, argv, "o:i:s:")) != -1)
+  // {
+  //   char *endptr;
 
-    switch (c)
-    {
-    case 'o':
-      output_filename = optarg;
-      break;
-    case 'i':
-      max_iterations = strtol(optarg, &endptr, 10);
-      break;
-    case 's':
-      max_size = strtol(optarg, &endptr, 10);
-      break;
-    default:
-      return EXIT_FAILURE;
-    }
-  }
+  //   switch (c)
+  //   {
+  //   case 'o':
+  //     output_filename = optarg;
+  //     break;
+  //   case 'i':
+  //     max_iterations = strtol(optarg, &endptr, 10);
+  //     break;
+  //   case 's':
+  //     max_size = strtol(optarg, &endptr, 10);
+  //     break;
+  //   default:
+  //     return EXIT_FAILURE;
+  //   }
+  // }
 
   ppm_t *ppm = ppm_create(WIDTH, HEIGHT);
 
@@ -111,9 +111,10 @@ int main(int argc, char *argv[])
         x = x_square - y_square + P[col];
         color++;
       }
-      int intensity = (color / max_iterations) * 255;
-      ppm_color_t grey = {intensity, intensity, intensity};
-      ppm_dot_safe(ppm, col, row, grey);
+      // int intensity = (color / max_iterations) * 255;
+      // ppm_color_t grey = {intensity, intensity, intensity};
+      // ppm_dot_safe(ppm, col, row, grey);
+      ppm_dot_safe(ppm, col, row, colors[color % colornum]);
     }
   }
 
@@ -127,9 +128,9 @@ int main(int argc, char *argv[])
   // double elapsed_time = (double)(end_time - start_time) / CLOCKS_PER_SEC;
   // printf("Time elapsed: %.2f seconds\n", elapsed_time);
 
-  double end_time = omp_get_wtime(); // Finaliza o cronômetro
-  double elapsed_time = end_time - start_time;
-  printf("Time elapsed: %.2f seconds\n", elapsed_time);
+  // double end_time = omp_get_wtime(); // Finaliza o cronômetro
+  // double elapsed_time = end_time - start_time;
+  // printf("Time elapsed: %.2f seconds\n", elapsed_time);
 
   return EXIT_SUCCESS;
 }

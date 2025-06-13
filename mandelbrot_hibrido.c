@@ -7,6 +7,7 @@
 #include <string.h>
 #include <omp.h>
 #include <bits/getopt_core.h>
+#include <omp.h>
 
 #define WIDTH 640
 #define HEIGHT 480
@@ -17,8 +18,8 @@
 
 #define NUM_FRAMES 30
 
-void controller(int num_frames);
-void worker();
+void controller(int num_frames, int parallel);
+void worker(int);
 
 typedef struct
 {
@@ -26,14 +27,15 @@ typedef struct
 } zoom_coords_t;
 
 void generate_zoom_sequence(zoom_coords_t *coords, int num_frames);
-void mandelbrot_render(int *response, double x_min, double x_max, double y_min, double y_max, int width, int height, int frame_id);
+void mandelbrot_render(int *response, zoom_coords_t coords, int width, int height, int frame_id, int parallel);
 void saveImage(int *colors, int frame_id);
 
 int main(int argc, char *argv[])
 {
   int c;
-  int frames = 0;
-  while ((c = getopt(argc, argv, "f:")) != -1)
+  int frames = NUM_FRAMES;
+  int parallel = 2;
+  while ((c = getopt(argc, argv, "f:p:")) != -1)
   {
     if (c == 'f')
     {
@@ -41,11 +43,12 @@ int main(int argc, char *argv[])
       frames = strtol(optarg, &endptr, 10);
       printf("Número de frames: %d\n", frames);
     }
-  }
-  if (frames <= 0)
-  {
-    fprintf(stderr, "Número de frames inválido. Usando o padrão de %d frames.\n", NUM_FRAMES);
-    frames = NUM_FRAMES;
+    else if (c == 'p')
+    {
+      char *endptr;
+      parallel = strtol(optarg, &endptr, 10);
+      printf("Número de processos paralelos (OpenMP): %d\n", parallel);
+    }
   }
 
   int my_rank;
@@ -57,20 +60,20 @@ int main(int argc, char *argv[])
   if (my_rank == 0)
   {
     start_time = MPI_Wtime();
-    controller(frames);
+    controller(frames, parallel);
     end_time = MPI_Wtime();
     printf("Tempo decorrido: %f segundos\n", end_time - start_time);
   }
   else
   {
-    worker();
+    worker(parallel);
   }
 
   MPI_Finalize();
   return EXIT_SUCCESS;
 }
 
-void controller(int num_frames)
+void controller(int num_frames, int parallel)
 {
   int num_procs;
   MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
@@ -95,13 +98,17 @@ void controller(int num_frames)
     frames_sent++;
   }
 
+  int **all_res = malloc(num_frames * sizeof(int *));
+  for (int i = 0; i < num_frames; i++)
+  {
+    all_res[i] = malloc(WIDTH * HEIGHT * sizeof(int));
+  }
+
   while (frames_received < num_frames)
   {
-    int *res = malloc(WIDTH * HEIGHT * sizeof(int));
-    MPI_Recv(res, WIDTH * HEIGHT, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
     int frame_id = status.MPI_TAG;
-    saveImage(res, frame_id);
-    free(res);
+    MPI_Recv(&all_res[frame_id][0], WIDTH * HEIGHT, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
     frames_received++;
 
     if (frames_sent < num_frames)
@@ -121,11 +128,19 @@ void controller(int num_frames)
       MPI_Send(&fim, 1, MPI_DOUBLE, status.MPI_SOURCE, 999, MPI_COMM_WORLD);
     }
   }
+
+  printf("Todos os frames recebidos: %d\n", frames_received);
+#pragma omp parallel for num_threads(parallel)
+  for (int i = 0; i < num_frames; i++)
+  {
+    saveImage(all_res[i], i);
+  }
 }
 
-void worker()
+void worker(int parallel)
 {
   MPI_Status status;
+  printf("Worker started\n");
 
   while (1)
   {
@@ -140,7 +155,8 @@ void worker()
     int height = (int)coords[5];
 
     int *response = malloc(width * height * sizeof(int));
-    mandelbrot_render(response, x_min, x_max, y_min, y_max, width, height, status.MPI_TAG);
+    zoom_coords_t struct_cords = {x_min, x_max, y_min, y_max};
+    mandelbrot_render(response, struct_cords, width, height, status.MPI_TAG, parallel);
     MPI_Send(response, width * height, MPI_INT, 0, status.MPI_TAG, MPI_COMM_WORLD);
     free(response);
   }
@@ -168,16 +184,28 @@ void generate_zoom_sequence(zoom_coords_t *coords, int num_frames)
   }
 }
 
-void mandelbrot_render(int *response, double x_min, double x_max, double y_min, double y_max, int width, int height, int frame_id)
+void mandelbrot_render(int *response, zoom_coords_t coords, int width, int height, int frame_id, int parallel)
 {
+  double x_min = coords.x_min;
+  double x_max = coords.x_max;
+  double y_min = coords.y_min;
+  double y_max = coords.y_max;
+
   double delta_x = (x_max - x_min) / width;
   double delta_y = (y_max - y_min) / height;
 
-  for (int row = 0; row < height; row++)
+  omp_set_num_threads(parallel);
+/*
+ * For every pixel calculate resulting value until the number becomes too
+ * big, or we run out of iterations
+ */
+#pragma omp parallel for schedule(static) collapse(2) // Paraleliza os loops
+  for (int row = 0; row < HEIGHT; row++)
   {
-    double y0 = y_max - row * delta_y;
-    for (int col = 0; col < width; col++)
+    for (int col = 0; col < WIDTH; col++)
     {
+      double y0 = y_max - row * delta_y;
+
       double x0 = x_min + col * delta_x;
       double x = 0, y = 0;
       int iteration = 0;
@@ -189,7 +217,6 @@ void mandelbrot_render(int *response, double x_min, double x_max, double y_min, 
         x = xtemp;
         iteration++;
       }
-
       double norm = (double)iteration / MAX_ITERATIONS;
       double gamma = 0.4f;
       double scaled = powf(norm, gamma);
